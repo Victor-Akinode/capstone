@@ -1,0 +1,165 @@
+Detailed Explanation of Each Model and Transformation in dbt
+
+In my dbt project, I structured the data transformation process into three key stages: Staging Models, Intermediate Models, and Final Models. Each stage plays a crucial role in preparing raw data for analysis by applying specific transformations that ensure the data is clean, consistent, and usable.
+
+1. Staging Models
+
+Staging models are the first layer of transformations applied to the raw data extracted from Google BigQuery. These models typically perform basic cleaning, standardization, and joining operations to prepare the data for more complex transformations in the subsequent layers.
+
+1.1. stg_orders.sql
+
+	•	Purpose: This model handles the raw orders data from the source system. The primary focus is to clean and standardize the data, ensuring that all necessary fields are formatted correctly for downstream processing.
+	•	Key Transformations:
+	•	Date Formatting: Converts order date fields into consistent date formats.
+	•	Join Operations: Joins with customer and payment data to enrich the orders dataset.
+	•	Null Handling: Fills missing or null values with appropriate defaults to ensure data integrity.
+   
+    WITH raw_orders AS (
+    SELECT 
+        order_id,
+        customer_id,
+        order_status,
+        order_purchase_timestamp,
+        order_approved_at,
+        order_delivered_carrier_date,
+        order_delivered_customer_date,
+        order_estimated_delivery_date
+    FROM 
+        `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.orders`
+    )
+
+1.2. stg_products.sql
+
+	•	Purpose: This model standardizes and cleans the raw product data, ensuring that all product-related information is accurate and consistent.
+	•	Key Transformations:
+	•	Null Handling: Fills missing values for product dimensions like weight and length with zeros or other appropriate defaults.
+	•	Data Type Casting: Ensures that numeric fields are correctly cast to appropriate data types to avoid errors in further calculations.
+
+
+        WITH raw_products AS (
+            SELECT 
+                product_id,
+                product_category_name,
+                product_name_length,
+                product_description_length,
+                product_photos_qty,
+                product_weight_g,
+                product_length_cm,
+                product_height_cm,
+                product_width_cm
+            FROM 
+                `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.products`
+        )
+
+        SELECT * FROM raw_products;
+
+2. Intermediate Models
+
+Intermediate models build upon the staging models by applying more complex transformations. These models typically involve aggregations, calculations, and other data manipulations to create intermediate datasets that are close to final analysis-ready tables.
+
+2.1. int_sales_by_category.sql
+
+	•	Purpose: Aggregates sales data by product category. This model calculates the total sales for each category by summing up the order values associated with each product.
+	•	Key Transformations:
+	•	Aggregation: Groups the data by product_category_name and calculates the total sales for each category.
+	•	Join Operations: Joins with the orders and order items tables to get the necessary fields for sales calculation.
+
+            WITH sales_data AS (
+                SELECT 
+                    p.product_category_name,
+                    SUM(oi.price) AS total_sales
+                FROM 
+                    `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.order_items` oi
+                JOIN 
+                    `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.products` p 
+                ON 
+                    oi.product_id = p.product_id
+                GROUP BY 
+                    p.product_category_name
+            )
+
+            SELECT * FROM sales_data;
+
+2.2. int_avg_delivery_time.sql
+
+	•	Purpose: Calculates the average delivery time for each order. This model computes the time difference between the order purchase date and the order delivery date to determine how long it took to fulfill each order.
+	•	Key Transformations:
+	•	Time Difference Calculation: Subtracts the order_purchase_timestamp from order_delivered_customer_date to get the delivery time.
+	•	Aggregation: Averages the delivery time across all orders to get a summary metric.
+
+            WITH delivery_times AS (
+                SELECT 
+                    o.order_id,
+                    o.order_purchase_timestamp,
+                    o.order_delivered_customer_date,
+                    TIMESTAMP_DIFF(o.order_delivered_customer_date, o.order_purchase_timestamp, HOUR) AS delivery_time_hours
+                FROM 
+                    `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.orders` o
+                WHERE 
+                    o.order_status = 'delivered'
+             )
+
+            SELECT 
+                AVG(delivery_time_hours) AS avg_delivery_time_hours
+            FROM 
+                delivery_times;
+
+2.3. int_orders_by_state.sql
+
+	•	Purpose: Counts the number of orders per state. This model aggregates orders by the state of the customer who placed them.
+	•	Key Transformations:
+	•	Aggregation: Groups the data by customer_state and counts the number of orders in each state.
+	•	Join Operations: Joins with customer data to retrieve the state information.
+
+        WITH orders_by_state AS (
+            SELECT 
+                c.customer_state,
+                COUNT(o.order_id) AS total_orders
+            FROM 
+                `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.orders` o
+            JOIN 
+                `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.customers` c 
+            ON 
+                o.customer_id = c.customer_id
+            GROUP BY 
+                c.customer_state
+        )
+
+        SELECT * FROM orders_by_state;
+
+3. Final Models
+
+Final models represent the end result of the dbt transformation pipeline. These models are clean, aggregated datasets that are ready for analysis and reporting.
+
+3.1. fct_sales_by_category.sql
+
+	•	Purpose: Provides a clean, final dataset of sales by product category. This model aggregates the data from the intermediate sales model to provide a summary view that can be easily consumed by analysts or dashboards.
+	•	Key Transformations:
+	•	Final Aggregation: Ensures that the data is properly aggregated and formatted for reporting.
+
+    SELECT 
+        product_category_name,
+        total_sales
+    FROM 
+        `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.int_sales_by_category`;
+
+
+3.2. fct_avg_delivery_time.sql
+
+	•	Purpose: Provides a clean, final dataset of the average delivery time across all orders. This model aggregates the data from the intermediate delivery time model to provide a summary view.
+	•	Key Transformations:
+	•	Final Calculation: Outputs the final average delivery time in a format that can be easily used in reporting.
+
+    SELECT 
+        avg_delivery_time_hours
+    FROM 
+        `{{ env_var('PROJECT_ID') }}.{{ env_var('DATASET_ID') }}.int_avg_delivery_time`;
+
+
+3.3. fct_orders_by_state.sql
+
+	•	Purpose: Provides a clean, final dataset of the number of orders by state. This model aggregates the data from the intermediate orders by state model to provide a summary view.
+	•	Key Transformations:
+	•	Final Aggregation: Ensures that the data is properly aggregated and formatted for reporting.
+
+        

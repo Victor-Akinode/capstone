@@ -1,0 +1,95 @@
+Detailed Report: Analysis of Brazilian E-Commerce Data Using dbt
+
+Introduction
+
+This report presents findings from the analysis of a Brazilian e-commerce dataset using dbt (Data Build Tool). The analysis aimed to answer three key questions:
+
+	1.	Which product categories have the highest sales?
+	2.	What is the average delivery time for orders?
+	3.	Which states have the highest number of orders?
+
+The data was modeled and transformed using dbt to derive these insights.
+
+1. Which Product Categories Have the Highest Sales?
+
+Process and Transformation:
+
+Staging Models:
+
+	•	stg_orders.sql: Extracted raw orders data, joining it with product information to associate orders with their respective categories.
+	•	stg_products.sql: Extracted raw product data, focusing on product categories.
+
+Intermediate Model:
+
+	•	int_sales_by_category.sql: Aggregated sales data by summing up the total sales for each product category.
+
+Final Model:
+
+	•	fct_sales_by_category.sql: Produced the final sales figures for each product category.
+
+Findings:
+
+The table below lists the top product categories by total sales:
+
+Product Category                            Total Sales (BRL)
+Health_beauty                                 1347468.48999995
+watches_gifts                                 1259634.57999999
+bed_bath_table                                1228795.45999998
+computers_accessories                         1135454.64000001
+sports_leisure                                1082435.42000003
+
+Conclusion: The Health_beauty category leads in total sales, indicating strong consumer demand in this segment.
+
+2. What is the Average Delivery Time for Orders?
+
+Process and Transformation:
+
+Staging Models:
+
+	•	stg_orders.sql: Captured the order placement and delivery dates.
+	•	stg_order_reviews.sql: Provided additional context on delivery timings from customer reviews.
+
+Intermediate Model:
+
+	•	int_avg_delivery_time.sql: Calculated the time difference between order placement and delivery.
+
+Final Model:
+
+	•	fct_avg_delivery_time.sql: Provided the average delivery time across all orders.
+
+Findings:
+
+The answer below shows the average delivery time for orders:
+12 days 13:24:31.879068
+
+
+3. Which States Have the Highest Number of Orders?
+
+Process and Transformation:
+
+Staging Models:
+
+	•	stg_orders.sql: Extracted order data, including delivery addresses indicating the state.
+	•	stg_customers.sql: Ensured orders could be attributed to specific states.
+
+Intermediate Model:
+
+	•	int_orders_by_state.sql: Aggregated orders by state to determine regional distribution.
+
+Final Model:
+
+	•	fct_orders_by_state.sql: Presented the total number of orders per state.
+
+Findings:
+
+The table below lists the states with the highest number of orders:
+
+customer_state	number_of_orders
+SP	                41746
+RJ	                12852
+MG	                11635
+RS	                5466    
+PR	                5045
+SC	                3637
+
+Conclusion: São Paulo (SP) has the highest number of orders, reflecting its status as a major economic hub in Brazil.

@@ -1,0 +1,80 @@
+services:
+  db:
+    image: postgres:latest
+    platform: linux/amd64
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  redis:
+    image: redis:latest
+    platform: linux/amd64
+    restart: always
+
+  airflow-webserver:
+    image: apache/airflow:2.3.0
+    platform: linux/amd64
+    depends_on:
+      - db
+      - redis
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'airflowsecret'
+      GCS_BUCKET: ${GCS_BUCKET}
+      GCS_PATH: ${GCS_PATH}
+      BQ_DATASET: ${BQ_DATASET}
+      BQ_TABLE: ${BQ_TABLE}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./dags:/opt/airflow/dags
+
+  airflow-scheduler:
+    image: apache/airflow:2.3.0
+    platform: linux/amd64
+    depends_on:
+      - db
+      - redis
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'airflowsecret'
+      GCS_BUCKET: ${GCS_BUCKET}
+      GCS_PATH: ${GCS_PATH}
+      BQ_DATASET: ${BQ_DATASET}
+      BQ_TABLE: ${BQ_TABLE}
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: scheduler
+
+  airflow-init:
+    image: apache/airflow:2.3.0
+    platform: linux/amd64
+    depends_on:
+      - db
+      - redis
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      AIRFLOW__CORE__FERNET_KEY: ''
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'airflowsecret'
+      GCS_BUCKET: ${GCS_BUCKET}
+      GCS_PATH: ${GCS_PATH}
+      BQ_DATASET: ${BQ_DATASET}
+      BQ_TABLE: ${BQ_TABLE}
+    volumes:
+      - ./dags:/opt/airflow/dags
+    command: ["airflow", "db", "init"]
+
+volumes:
+  pgdata:
