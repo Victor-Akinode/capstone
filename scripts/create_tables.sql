@@ -1,4 +1,8 @@
-DROP TABLE IF EXISTS customers, geolocation, order_items, order_payments, order_reviews, orders, products, sellers, product_category_name_translation CASCADE;
+
+---HERE IS THE LINK TO MY VIDEO PRESENTATION: https://youtu.be/jVD4cEsgD50---
+
+
+-- DROP TABLE IF EXISTS customers, geolocation, order_items, order_payments, order_reviews, orders, products, sellers, product_category_name_translation CASCADE;
 
 CREATE TABLE customers (
     customer_id VARCHAR PRIMARY KEY,
